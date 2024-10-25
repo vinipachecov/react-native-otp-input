@@ -2,9 +2,9 @@
 import { InputProps, OTPInputViewState } from '@twotalltotems/react-native-otp-input';
 import React, { Component } from 'react'
 import { View, TextInput, TouchableWithoutFeedback, Keyboard, Platform, I18nManager, EmitterSubscription, } from 'react-native'
-import Clipboard from '@react-native-community/clipboard';
 import styles from './styles'
 import { isAutoFillSupported } from './helpers/device'
+import * as Clipboard from 'expo-clipboard';
 import { codeToArray } from './helpers/codeToArray'
 
 export default class OTPInputView extends Component<InputProps, OTPInputViewState> {
@@ -91,23 +91,38 @@ export default class OTPInputView extends Component<InputProps, OTPInputViewStat
     }
 
     checkPinCodeFromClipBoard = () => {
-        const { pinCount, onCodeFilled } = this.props
-        const regexp = new RegExp(`^\\d{${pinCount}}$`)
-        Clipboard.getString().then(code => {
-            if (this.hasCheckedClipBoard && regexp.test(code) && (this.clipBoardCode !== code)) {
-                this.setState({
-                    digits: code.split(""),
-                }, () => {
-                    this.blurAllFields()
-                    this.notifyCodeChanged()
-                    onCodeFilled && onCodeFilled(code)
-                })
-            }
-            this.clipBoardCode = code
-            this.hasCheckedClipBoard = true
-        }).catch(() => {
-        })
-    }
+        const { pinCount, onCodeFilled } = this.props;
+        const regexp = new RegExp(`^\\d{${pinCount}}$`);
+
+        Clipboard.getStringAsync()
+            .then(code => {
+                if (!code) {
+                    console.log('Clipboard is empty or not accessible');
+                    return;
+                }
+
+                if (this.hasCheckedClipBoard && regexp.test(code) && (this.clipBoardCode !== code)) {
+                    this.setState(
+                        {
+                            digits: code.split(""),
+                        },
+                        () => {
+                            this.blurAllFields();
+                            this.notifyCodeChanged();
+                            if (onCodeFilled) {
+                                onCodeFilled(code);
+                            }
+                        }
+                    );
+                }
+
+                this.clipBoardCode = code;
+                this.hasCheckedClipBoard = true;
+            })
+            .catch(error => {
+                console.error('Error accessing clipboard:', error);
+            });
+    };
 
     private handleChangeText = (index: number, text: string) => {
         const { onCodeFilled, pinCount } = this.props
